@@ -1,4 +1,6 @@
 # 使用方法
+架构参考：https://nexa.ai/blogs/omni-vision
+https://github.com/jingyaogong/minimind-v
 
 ## 下载模型及数据
 ### 下载qwen2.5-0.5b和siglip
