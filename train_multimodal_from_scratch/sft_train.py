@@ -19,17 +19,18 @@ from PIL import Image
 from train import VLMConfig, VLM
 
 
+# 通过扫描目标序列 target，找到以 assistant token 开头、以 '<|im_end|>' token 结尾的所有范围，并返回这些范围的索引
 def find_assistant_tokens(tokenizer, target):
     result = []
     start_index =0
     end_index = 0
     while start_index <= len(target)-1:
-        if target[start_index]!=tokenizer('assistant')['input_ids'][0]:
+        if target[start_index]!=tokenizer('assistant')['input_ids'][0]: # 检查当前的 token 是否是标识符 assistant 的 token ID
             start_index+=1
             end_index+=1
         else:
             end_index+=1
-            if target[end_index]==tokenizer('<|im_end|>')['input_ids'][0]:
+            if target[end_index]==tokenizer('<|im_end|>')['input_ids'][0]: # 检查是否遇到了结束标记 '<|im_end|>'
                 result.append((start_index+1,end_index+1))
                 start_index=end_index+1
     return result
@@ -124,7 +125,7 @@ if __name__ == '__main__':
     AutoModelForCausalLM.register(VLMConfig, VLM)
     model = AutoModelForCausalLM.from_pretrained('/home/user/wyf/train_multimodal_from_scratch/save/pretrain')
     
-    for name, param in model.named_parameters():
+    for name, param in model.named_parameters(): # 只微调LLM的参数，视觉模型与线性层冻结。
         if 'linear' in name or 'vision_model':
             param.requires_grad = False
         if 'llm_model' in name:
