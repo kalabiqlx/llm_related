@@ -15,8 +15,8 @@ from torch.utils.data import Dataset
 from transformers import Trainer, TrainingArguments, DataCollatorWithPadding
 from typing import List, Dict, Any
 
-class VLMConfig(PretrainedConfig):
-    model_type = "vlm_model"
+class VLMConfig(PretrainedConfig): # 预训练配置
+    model_type = "vlm_model" #  模型类型的标识符，序列化到 JSON 文件中，并用于在AutoConfig中重新创建正确的对象。用于之后用transformer库直接调用文件
     def __init__(self,llm_model_path = '/home/user/Downloads/Qwen2.5-0.5B-Instruct',
                  vision_model_path = '/home/user/Downloads/siglip-so400m-patch14-384',
                  freeze_vision_model = True,
@@ -26,19 +26,21 @@ class VLMConfig(PretrainedConfig):
         self.llm_model_path = llm_model_path
         self.freeze_vision_model = freeze_vision_model
         self.image_pad_num = image_pad_num
-        super().__init__(**kwargs)
+        super().__init__(**kwargs) # 调用父类 PretrainedConfig 的 __init__ 方法，将 **kwargs 传递给父类。
         
         
         
 class VLM(PreTrainedModel):
-    config_class = VLMConfig
+    config_class = VLMConfig # config类是前面定义的VLMConfig类
     def __init__(self, config):
         super().__init__(config)
         self.config = config
-        self.vision_model = AutoModel.from_pretrained(self.config.vision_model_path)
-        self.processor = AutoProcessor.from_pretrained(self.config.vision_model_path)
-        self.llm_model = AutoModelForCausalLM.from_pretrained(self.config.llm_model_path)
-        self.tokenizer = AutoTokenizer.from_pretrained(self.config.llm_model_path)
+        self.vision_model = AutoModel.from_pretrained(self.config.vision_model_path) # 加载视觉模型
+        self.processor = AutoProcessor.from_pretrained(self.config.vision_model_path) # 加载视觉模型的图像处理器
+        self.llm_model = AutoModelForCausalLM.from_pretrained(self.config.llm_model_path) # 自动加载自回归语言模型，无需手动指定模型类
+        self.tokenizer = AutoTokenizer.from_pretrained(self.config.llm_model_path) # 加载语言模型的分词器
+
+        # 用于视觉与文本token的对齐，这里之所以有个*4是因为omni-vision中采用了对图像token的压缩，即将图像token序列的长度减小了4倍，同时增大了四倍的维度。
         self.linear1 = nn.Linear(self.vision_model.config.vision_config.hidden_size*4, self.llm_model.config.hidden_size)
         self.linear2 = nn.Linear(self.llm_model.config.hidden_size, self.llm_model.config.hidden_size)
         if self.config.freeze_vision_model:
