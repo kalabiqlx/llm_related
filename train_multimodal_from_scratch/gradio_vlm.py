@@ -23,13 +23,14 @@ def generate(mode, image_input, text_input, max_new_tokens = 100, temperature = 
     q_text = tokenizer.apply_chat_template([{"role":"system", "content":'You are a helpful assistant.'}, {"role":"user", "content":f'{text_input}\n<image>'}], \
             tokenize=False, \
             add_generation_prompt=True).replace('<image>', '<|image_pad|>'*49)
-    input_ids = tokenizer(q_text, return_tensors='pt')['input_ids']
+    input_ids = tokenizer(q_text, return_tensors='pt')['input_ids'] # tokenizer在输出'输入ID列表'时，还在其顶部添加了一个维度：这是为了处理多个序列而新增的一个维度，故input_ids.shape=torch.Size([序列数，长度])
     input_ids = input_ids.to(device)
     # image = Image.open(image_input).convert("RGB")
     pixel_values = processor(text=None, images=image_input).pixel_values
     pixel_values = pixel_values.to(device)
     eos = tokenizer.eos_token_id
-    s = input_ids.shape[1]
+    
+    s = input_ids.shape[1] # input_ids的长度
     while input_ids.shape[1] < s + max_new_tokens - 1:  
         if mode == 'pretrain':
             model = pretrain_model
@@ -65,7 +66,7 @@ with gr.Blocks() as demo:
         with gr.Column(scale=1):
                 image_input = gr.Image(type="pil", label="选择图片")
         with gr.Column(scale=1):
-            mode = gr.Radio(["pretrain", "sft"], label="选择模型")
+            mode = gr.Radio(["pretrain", "sft"], label="选择模型") # 两种模型选择
             text_input = gr.Textbox(label="输入文本")
             text_output = gr.Textbox(label="输出文本")
             generate_button = gr.Button("生成")
