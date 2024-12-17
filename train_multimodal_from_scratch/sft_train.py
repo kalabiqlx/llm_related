@@ -122,8 +122,15 @@ if __name__ == '__main__':
     config = VLMConfig()
     processor = AutoProcessor.from_pretrained("/home/user/wyf/siglip-base-patch16-224")
     tokenizer = AutoTokenizer.from_pretrained('/home/user/Downloads/Qwen2.5-0.5B-Instruct')
+
+    # 在框架中注册一个自定义的模型配置（VLMConfig）和对应的模型类（VLM），这样在后续使用时，可以通过配置自动加载模型。
     AutoConfig.register("vlm_model", VLMConfig)
+    # 将一个自定义配置类 VLMConfig 关联到一个模型类型标识符 "vlm_model"。
+    # 当你在模型加载时传入模型类型 "vlm_model"，框架会知道需要使用 VLMConfig 来解析配置
     AutoModelForCausalLM.register(VLMConfig, VLM)
+    # 将自定义的配置类 VLMConfig 和模型类 VLM 进行关联。
+    # 当框架遇到使用 VLMConfig 进行配置时，它会自动加载对应的模型类 VLM。
+    
     model = AutoModelForCausalLM.from_pretrained('/home/user/wyf/train_multimodal_from_scratch/save/pretrain')
     
     for name, param in model.named_parameters(): # 只微调LLM的参数，视觉模型与线性层冻结。
