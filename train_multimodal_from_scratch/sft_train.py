@@ -19,7 +19,7 @@ from PIL import Image
 from train import VLMConfig, VLM
 
 
-# 通过扫描目标序列 target，找到以 assistant token 开头、以 '<|im_end|>' token 结尾的所有范围，并返回这些范围的索引
+# 通过扫描目标序列 target，找到以 'assistant' token 开头、以 '<|im_end|>' token 结尾的所有范围，并返回这些范围的索引
 def find_assistant_tokens(tokenizer, target):
     result = []
     start_index =0
@@ -50,6 +50,7 @@ class SFTDataset(Dataset):
     def __len__(self):
         return len(self.datas)
     
+    # 在sft过程中只需要计算回答部分的损失
     def __getitem__(self, index):
         sample = self.datas[index]
         try:
