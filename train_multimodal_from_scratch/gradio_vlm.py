@@ -71,18 +71,46 @@ def generate(mode, image_input, text_input, max_new_tokens = 100, temperature = 
     return tokenizer.decode(input_ids[:, s:][0]) # 取输出部分
 
 with gr.Blocks() as demo:
-    with gr.Row():
+    # gr.Blocks 是 Gradio 中的一个高级布局容器，允许灵活地组合多个组件（比如文本框、按钮等）
+    # 将当前 Blocks 实例命名为 demo，之后可以通过 demo.launch() 来启动
+    
+    with gr.Row(): # 将内部组件横向排列
         # 上传图片
-        with gr.Column(scale=1):
+        with gr.Column(scale=1): # 将组件纵向排列，形成列布局。scale=1：表示两列所占的空间比相等
                 image_input = gr.Image(type="pil", label="选择图片")
+                """
+                gr.Image：提供上传图片的功能。
+                type="pil"：将上传的图片转换为 PIL.Image 格式，方便后续处理。
+                label="选择图片"：在 UI 界面上显示的标签名称。
+                """
         with gr.Column(scale=1):
-            mode = gr.Radio(["pretrain", "sft"], label="选择模型") # 两种模型选择
-            text_input = gr.Textbox(label="输入文本")
+            mode = gr.Radio(["pretrain", "sft"], label="选择模型") 
+            # 两种模型选择，gr.Radio：提供单选按钮。label="选择模型"：UI 上显示的描述标签
+            text_input = gr.Textbox(label="输入文本") # gr.Textbox：文本输入框。label="输入文本"：输入框上方显示的标签。
             text_output = gr.Textbox(label="输出文本")
-            generate_button = gr.Button("生成")
+            generate_button = gr.Button("生成") # gr.Button：按钮组件。"生成"：按钮上显示的文本
             generate_button.click(generate, inputs=[mode, image_input, text_input], outputs=text_output)
+            """
+            generate_button.click：绑定按钮的点击事件。
+            generate：回调函数，当按钮被点击时执行这个函数。
+            inputs：传入回调函数的输入数据，这里包括：
+            mode：模型选择（"pretrain" 或 "sft"）。
+            image_input：用户上传的图片（PIL 格式）。
+            text_input：用户输入的文本。
+            outputs：回调函数的输出，这里将结果显示在 text_output 文本框中。
+            """
             
 
-if __name__ == "__main__":
+if __name__ == "__main__": # 确保只有当脚本被直接运行时，下面的代码才会执行。如果该文件被作为模块导入到其他脚本中，if 语句中的代码将不会执行。
     demo.launch(share=False, server_name="0.0.0.0", server_port=7891)
-    
+    """
+    launch() 方法用于启动 Gradio Web 服务器，打开应用程序。
+    share 参数控制是否生成一个可以公开访问的链接。
+    server_name 参数指定服务器绑定的网络地址。
+        "0.0.0.0"：表示将服务器绑定到所有可用的网络接口。
+        这使得该应用可以被局域网中的其他设备访问。
+        如果设置为 "127.0.0.1"，则只能在本地访问。
+    server_port 指定 Web 服务器监听的端口号。
+        7891：自定义端口，访问时可以使用 http://<ip地址>:7891。
+        默认端口 是 7860，通过设置此参数可以避免与其他服务端口冲突。
+    """
