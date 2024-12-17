@@ -35,9 +35,9 @@ class VLM(PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.config = config
-        self.vision_model = AutoModel.from_pretrained(self.config.vision_model_path) # 加载视觉模型
+        self.vision_model = AutoModel.from_pretrained(self.config.vision_model_path) # 加载视觉模型，注意这里是带head的，输出是hidden_states
         self.processor = AutoProcessor.from_pretrained(self.config.vision_model_path) # 加载视觉模型的图像处理器
-        self.llm_model = AutoModelForCausalLM.from_pretrained(self.config.llm_model_path) # 自动加载自回归语言模型，无需手动指定模型类
+        self.llm_model = AutoModelForCausalLM.from_pretrained(self.config.llm_model_path) # 自动加载自回归语言模型，无需手动指定模型类，注意这里是带head的，输出是logits
         self.tokenizer = AutoTokenizer.from_pretrained(self.config.llm_model_path) # 加载语言模型的分词器
 
         # 用于视觉与文本token的对齐，这里之所以有个*4是因为omni-vision中采用了对图像token的压缩（reshape），即将图像token序列的长度减小了4倍，同时增大了四倍的维度。
@@ -52,7 +52,7 @@ class VLM(PreTrainedModel):
             param.requires_grad = False
         
     def forward(self, input_ids, labels, pixel_values, attention_mask=None): # 前向传播过程
-        text_embeds = self.llm_model.get_input_embeddings()(input_ids) # 返回模型的输入文本嵌入
+        text_embeds = self.llm_model.get_input_embeddings()(input_ids) # 返回模型的输入文本嵌入(nn.moudle类型)
         
         image_embeds = self.vision_model.vision_model(pixel_values).last_hidden_state # 返回模型的输入图像嵌入
         b, s, d = image_embeds.shape # (b, 14 * 14, d)
@@ -62,20 +62,22 @@ class VLM(PreTrainedModel):
         text_embeds = text_embeds.to(image_features.dtype) # 将文本数据类型变为图像的数据类型
         
         inputs_embeds = self.merge_input_ids_with_image_features(image_features, text_embeds, input_ids) 
-        outputs = self.llm_model(inputs_embeds=inputs_embeds, attention_mask=attention_mask)
-        logits = outputs[0]
+        outputs = self.llm_model(inputs_embeds=inputs_embeds, attention_mask=attention_mask) # 这里直接传入嵌入
+        logits = outputs[0] # 输出的logits也是二维的，要把顶部加的维度去掉
         loss = None
         if labels is not None:
-            loss_fct = nn.CrossEntropyLoss(ignore_index=self.tokenizer.pad_token_id)
+            loss_fct = nn.CrossEntropyLoss(ignore_index=self.tokenizer.pad_token_id) # 定义交叉熵损失函数，ignore_index：忽略掉填充 Token（pad_token_id）的影响，保证模型只计算有效 Token 的损失
             loss = loss_fct(
-                logits.view(-1, logits.size(-1)), labels.view(-1).to(logits.device)
+                logits.view(-1, logits.size(-1)), labels.view(-1).to(logits.device) 
+                # 将输出的 logits 拉平成二维张量，同时标签也拉平成二维张量
+                # 对 logits 和 labels 逐元素计算交叉熵损失
             )
         return CausalLMOutputWithPast(loss=loss, logits=logits)
         
     def merge_input_ids_with_image_features(self, image_features, inputs_embeds, input_ids):
         
         num_images, num_image_patches, embed_dim = image_features.shape # (b, 49, d)
-        batch_indices, image_indices = torch.where(input_ids == self.tokenizer('<|image_pad|>')['input_ids'][0])
+        batch_indices, image_indices = torch.where(input_ids == self.tokenizer('<|image_pad|>')['input_ids'][0]) # 之所以有[0]是因为tokenizer()['input_ids']在顶部添加了一个维度，是2维的。
         # 用分词器将文本中表示图像的特殊占位符<|image_pad|>分词
         # 对整个 input_ids 张量进行比较，生成一个布尔矩阵，标记出等于 <|image_pad|> 的位置
         # torch.where：找出布尔矩阵中为 True 的位置，返回两个索引数组：
