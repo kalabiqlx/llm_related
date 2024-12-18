@@ -18,7 +18,7 @@ from typing import List, Dict, Any
 class VLMConfig(PretrainedConfig): # 预训练配置
     model_type = "vlm_model" #  模型类型的标识符，序列化到 JSON 文件中，并用于在AutoConfig中重新创建正确的对象。用于之后用transformer库直接调用文件
     def __init__(self,llm_model_path = '/home/user/Downloads/Qwen2.5-0.5B-Instruct',
-                 vision_model_path = '/home/user/Downloads/siglip-so400m-patch14-384', # 后面换回了224，patch大小为16*6，故一张图196个patch
+                 vision_model_path = '/home/user/Downloads/siglip-so400m-patch14-384', # 后面换回了224，patch大小为16*16，故一张图196个patch
                  freeze_vision_model = True,
                  image_pad_num = 49,
                 **kwargs):
