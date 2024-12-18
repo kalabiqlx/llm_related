@@ -40,7 +40,8 @@ class VLM(PreTrainedModel):
         self.llm_model = AutoModelForCausalLM.from_pretrained(self.config.llm_model_path) # 自动加载自回归语言模型，无需手动指定模型类，注意这里是带head的，输出是logits
         self.tokenizer = AutoTokenizer.from_pretrained(self.config.llm_model_path) # 加载语言模型的分词器
 
-        # 用于视觉与文本token的对齐，这里之所以有个*4是因为omni-vision中采用了对图像token的压缩（reshape），即将图像token序列的长度减小了4倍，同时增大了四倍的维度。
+        # 用于视觉与文本token的对齐，
+        # 这里之所以有个*4是因为omni-vision中采用了对图像token的压缩（reshape），这里将图像token序列的长度减小了4倍，同时增大了四倍的维度。（原论文中是9倍）
         self.linear1 = nn.Linear(self.vision_model.config.vision_config.hidden_size*4, self.llm_model.config.hidden_size)
         self.linear2 = nn.Linear(self.llm_model.config.hidden_size, self.llm_model.config.hidden_size)
         
