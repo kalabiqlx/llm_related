@@ -21,35 +21,44 @@ class RMSNorm(nn.Module): # RMSNorm，源自LLaMA，与LayerNorm的区别在于�
     def __init__(self, hidden_size, eps=1e-6):
         
         super().__init__()
-        self.weight = nn.Parameter(torch.ones(hidden_size))
+        self.weight = nn.Parameter(torch.ones(hidden_size)) # RMSNorm 的可学习参数，类似于 LayerNorm 中的缩放参数 gamma，初始化为全 1，形状是 [hidden_size]
         self.variance_epsilon = eps # 一个非常小的常数（默认值为 1e-6），用于避免方差为 0 时除以零的数值不稳定问题
 
-    def _norm(self, hidden_states: Tensor) -> Tensor:
-        variance = hidden_states.pow(2).mean(-1, keepdim=True)
-        return hidden_states * torch.rsqrt(variance + self.variance_epsilon)
+    def _norm(self, hidden_states: Tensor) -> Tensor: # hidden_states：形状为 [batch_size, seq_length, hidden_size] 的张量（如 Transformer 中的输入向量）
+        variance = hidden_states.pow(2).mean(-1, keepdim=True) # 输入张量 hidden_states 的最后一个维度（即 hidden_size）进行平方平均
+        return hidden_states * torch.rsqrt(variance + self.variance_epsilon) # torch.rsqrt() 计算倒数平方根
     
     def forward(self, hidden_states: Tensor) -> Tensor:
-        return self.weight * self._norm(hidden_states.float()).type_as(hidden_states)
+        return self.weight * self._norm(hidden_states.float()).type_as(hidden_states) 
+        # 先强制转换为float类型，再把最终结果的类型转换回输入张量的原始类型
     
 def rotate_half(x):
-    x1, x2 = x.chunk(2, dim=-1)
-    return torch.cat((-x2, x1), dim=-1)
+    x1, x2 = x.chunk(2, dim=-1) #  # 将张量 x 沿最后一个维度 (dim=-1) 平均分成两部分
+    return torch.cat((-x2, x1), dim=-1) # # 交换两部分并对第二部分取反符号，最终拼接
 
-def apply_rotate_pos_emb(q, k, cos, sin, unsqueeze_dim=2):
-    
-    cos = cos.unsqueeze(unsqueeze_dim)
-    sin = sin.unsqueeze(unsqueeze_dim)
-   
+def apply_rotate_pos_emb(q, k, cos, sin, unsqueeze_dim=2): # 旋转位置编码Rope
+    """
+    q: 查询向量（query），通常是注意力机制中的输入。
+    k: 键向量（key），也是注意力机制中的输入。
+    cos: 位置编码的余弦部分，维度应与 q 和 k 的最后一维一致。
+    sin: 位置编码的正弦部分，维度同上。
+    unsqueeze_dim=2: 指定在哪一维度上扩展 cos 和 sin 的维度（默认扩展第 2 维）
+    """
+    cos = cos.unsqueeze(unsqueeze_dim) # 通过 unsqueeze 方法，cos 和 sin 的维度被扩展了一维。
+    sin = sin.unsqueeze(unsqueeze_dim) # 扩展是为了将 cos 和 sin 与 q 和 k 对应的最后一维进行广播（broadcasting），从而实现点乘运算
+
+    # 对 q 和 k 分别应用旋转位置编码公式：
+公式的核心是将原始向量的一部分通过正弦函数旋转，另一部分通过余弦函数旋转，达到在特征维度上对位置进行编码的目的
     q_embed = (q*cos) + (rotate_half(q)*sin)
     k_embed = (k*cos) + (rotate_half(k)*sin)
     
-    return q_embed, k_embed
+    return q_embed, k_embed # 返回经过旋转位置编码处理的查询向量 q_embed 和键向量 k_embed
 
-class RotaryEmbedding(nn.Module):
-    def __init__(self, dim, max_seq_len=1024):
+class RotaryEmbedding(nn.Module): # 旋转位置编码嵌入
+    def __init__(self, dim, max_seq_len=1024): # dim 和 max_seq_len 被存储为类属性。
         super(RotaryEmbedding, self).__init__()
-        self.dim = dim
-        self.max_seq_len = max_seq_len
+        self.dim = dim # dim: 特征维度（即嵌入向量的维度）
+        self.max_seq_len = max_seq_len # max_seq_len: 最大序列长度（默认值为 1024）。这是位置编码支持的最大长度。
         inv_freq = 1.0 / (10000 ** (torch.arange(0, dim, 2).float() / dim))
         t = torch.arange(max_seq_len).float().unsqueeze(1)
         freqs = t @ inv_freq.unsqueeze(0)
