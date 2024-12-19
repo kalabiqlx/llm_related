@@ -17,18 +17,19 @@ from transformers import Trainer, TrainingArguments, AutoModelForCausalLM, AutoT
 from dataset import SFTDataset, LLMDataset
 
 
-class RMSNorm(nn.Module):
+class RMSNorm(nn.Module): # RMSNorm，源自LLaMA，与LayerNorm的区别在于没有减去均值
     def __init__(self, hidden_size, eps=1e-6):
         
         super().__init__()
         self.weight = nn.Parameter(torch.ones(hidden_size))
-        self.variance_epsilon = eps
+        self.variance_epsilon = eps # 一个非常小的常数（默认值为 1e-6），用于避免方差为 0 时除以零的数值不稳定问题
 
-    def forward(self, hidden_states):
-        hidden_states = hidden_states.float()
+    def _norm(self, hidden_states: Tensor) -> Tensor:
         variance = hidden_states.pow(2).mean(-1, keepdim=True)
-        hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
-        return self.weight * hidden_states.float()
+        return hidden_states * torch.rsqrt(variance + self.variance_epsilon)
+    
+    def forward(self, hidden_states: Tensor) -> Tensor:
+        return self.weight * self._norm(hidden_states.float()).type_as(hidden_states)
     
 def rotate_half(x):
     x1, x2 = x.chunk(2, dim=-1)
